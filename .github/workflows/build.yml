@@ -1,0 +1,156 @@
+name: Windows build, core tests and UI previews
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Test TLS, SNI and validation
+        run: dotnet run --project CoreTests.csproj -c Release
+      - name: Test native endpoint route selection
+        shell: powershell
+        run: ./TestRouteDiscovery.ps1
+      - name: Test Windows TCP routing and exact restore
+        id: routing
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          New-Item artifacts -ItemType Directory -Force | Out-Null
+          ./TestRouting.ps1
+      - name: Audit dependencies
+        run: dotnet list TunnelCore.csproj package --vulnerable --include-transitive
+      - name: Publish framework-dependent app
+        run: dotnet publish FluentTlsTunnel.csproj -c Release -r win-x64 --self-contained false -p:WindowsAppSDKSelfContained=true -o artifacts/dependent
+      - name: Publish portable app
+        run: dotnet publish FluentTlsTunnel.csproj -c Release -r win-x64 --self-contained true -p:WindowsAppSDKSelfContained=true -o artifacts/portable
+      - name: Include license notices
+        shell: pwsh
+        run: |
+          Copy-Item LICENSE,THIRD-PARTY-NOTICES.txt artifacts/dependent
+          Copy-Item LICENSE,THIRD-PARTY-NOTICES.txt artifacts/portable
+      - name: Build three preview packages
+        shell: pwsh
+        run: |
+          New-Item artifacts/packages -ItemType Directory -Force | Out-Null
+          Compress-Archive artifacts/portable/* artifacts/packages/Fluent-TLS-Tunnel-portable.zip
+          $iscc='C:/Program Files (x86)/Inno Setup 6/ISCC.exe'
+          if(!(Test-Path $iscc)) {throw 'Inno Setup compiler is unavailable'}
+          & $iscc /DSourceDir=artifacts/portable /DFlavor=installer Installer.iss
+          if($LASTEXITCODE -ne 0) {throw 'Bundled installer compile failed'}
+          & $iscc /DSourceDir=artifacts/dependent /DFlavor=runtime-dependent /DDependent Installer.iss
+          if($LASTEXITCODE -ne 0) {throw 'Dependent installer compile failed'}
+      - name: Verify second launch restores the existing window and clean shutdown
+        shell: pwsh
+        run: ./TestSingleInstance.ps1
+      - name: Capture UI previews
+        shell: powershell
+        run: ./Capture.ps1
+      - name: Store review screenshots
+        shell: pwsh
+        run: |
+          $shots=Join-Path $env:TEMP 'TlsShots'
+          New-Item $shots -ItemType Directory -Force | Out-Null
+          Copy-Item artifacts/screenshots/* $shots
+          $repo=(git remote get-url origin)
+          $auth=(git config --get http.https://github.com/.extraheader)
+          Push-Location $shots
+          git init
+          git config user.name 'Mohamed Elnaggar'
+          git config user.email 'MohamedElnaggar00@users.noreply.github.com'
+          git checkout --orphan ui-review
+          git add *.png
+          git commit -m 'Windows CI UI review screenshots'
+          git -c "http.https://github.com/.extraheader=$auth" push $repo HEAD:ui-review --force
+          Pop-Location
+      - name: Smoke test bundled install and uninstall
+        shell: pwsh
+        run: |
+          $dir=Join-Path $env:TEMP 'FluentTlsTunnelSmoke'
+          $install=Start-Process artifacts/packages/Fluent-TLS-Tunnel-installer.exe -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$dir") -Wait -PassThru
+          if($install.ExitCode -ne 0) {throw "Installer failed: $($install.ExitCode)"}
+          if(!(Test-Path "$dir/FluentTlsTunnel.exe") -or !(Test-Path "$dir/1-AppIcon.ico")) {throw 'Installed app files are missing'}
+          $app=Start-Process "$dir/FluentTlsTunnel.exe" -ArgumentList '--preview=en --state=about' -PassThru
+          for($i=0;$i -lt 30;$i++) {Start-Sleep -Milliseconds 500; $app.Refresh(); if($app.MainWindowHandle -ne [IntPtr]::Zero) {break}; if($app.HasExited) {throw 'Installed app exited before its window opened'}}
+          if($app.MainWindowHandle -eq [IntPtr]::Zero) {throw 'Installed app did not open a window'}
+          $app.CloseMainWindow() | Out-Null
+          if(!$app.WaitForExit(15000)) {$app.Kill(); throw 'Normal app shutdown did not complete'}
+          $uninstall=Start-Process "$dir/unins000.exe" -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait -PassThru
+          if($uninstall.ExitCode -ne 0) {throw 'Uninstall failed'}
+      - name: Launch runtime-dependent build with only .NET 8.0.0 installed
+        shell: pwsh
+        run: |
+          Get-Content artifacts/dependent/FluentTlsTunnel.runtimeconfig.json
+          $root=Join-Path $env:TEMP 'dotnet8only'
+          Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
+          ./dotnet-install.ps1 -Runtime dotnet -Version 8.0.0 -InstallDir $root -Architecture x64
+          ./dotnet-install.ps1 -Runtime windowsdesktop -Version 8.0.0 -InstallDir $root -Architecture x64
+          $env:DOTNET_ROOT=$root; $env:DOTNET_ROOT_X64=$root; $env:DOTNET_MULTILEVEL_LOOKUP='0'
+          $app=Start-Process artifacts/dependent/FluentTlsTunnel.exe -ArgumentList '--preview=en --state=about' -PassThru
+          for($i=0;$i -lt 40;$i++) {Start-Sleep -Milliseconds 500; $app.Refresh(); if($app.MainWindowHandle -ne [IntPtr]::Zero){break}; if($app.HasExited){throw "Runtime-dependent app exited with code $($app.ExitCode) on a machine with only .NET 8.0.0"}}
+          if($app.MainWindowHandle -eq [IntPtr]::Zero){throw 'Runtime-dependent app did not open a window'}
+          $app.CloseMainWindow() | Out-Null
+          if(!$app.WaitForExit(15000)) {$app.Kill(); throw 'App did not exit after closing its window'}
+      - name: Smoke test runtime-dependent installer detection
+        shell: pwsh
+        run: |
+          $dir=Join-Path $env:TEMP 'FluentTlsTunnelDependent'
+          $install=Start-Process artifacts/packages/Fluent-TLS-Tunnel-runtime-dependent.exe -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$dir") -Wait -PassThru
+          if($install.ExitCode -ne 0) {throw "Runtime-dependent installer rejected a machine with .NET 8 Desktop Runtime: $($install.ExitCode)"}
+          if(!(Test-Path "$dir/FluentTlsTunnel.exe")) {throw 'Runtime-dependent install files are missing'}
+          Start-Process "$dir/unins000.exe" -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait
+      - name: Enforce routing test result
+        if: always()
+        run: if(!(Test-Path artifacts/routing-passed.txt)){throw 'Routing verification did not pass'}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Fluent-TLS-Tunnel-preview
+          path: artifacts/
+name: Publish verified release
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Verified Windows build run id
+        required: true
+      sha:
+        description: Commit the build was made from
+        required: true
+      tag:
+        description: Release tag
+        required: true
+permissions:
+  contents: write
+  actions: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          name: Fluent-TLS-Tunnel-preview
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: verified-build
+      - name: Publish verified Windows packages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${{ inputs.run_id }} --jq .head_sha)" = "${{ inputs.sha }}"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${{ inputs.run_id }} --jq .conclusion)" = "success"
+          test -f verified-build/routing-passed.txt
+          test "${{ inputs.tag }}" = "v0.1.6"
+          gh release view "${{ inputs.tag }}" --json isDraft --jq .isDraft | grep -qx true
+          gh release upload "${{ inputs.tag }}" verified-build/packages/Fluent-TLS-Tunnel-installer.exe verified-build/packages/Fluent-TLS-Tunnel-portable.zip verified-build/packages/Fluent-TLS-Tunnel-runtime-dependent.exe

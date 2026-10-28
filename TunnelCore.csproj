@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup><ItemGroup><Compile Remove="**/*.cs" /><Compile Include="TunnelCore.cs" /><Compile Include="ConfigCrypto.cs" /><PackageReference Include="SSH.NET" Version="2026.0.0" /></ItemGroup></Project>

@@ -1,0 +1,10 @@
+Routing components (Windows x64)
+
+tun2socks v2.7.0 (MIT), Jason Lyu
+https://github.com/xjasonlyu/tun2socks/releases/tag/v2.7.0
+Source: https://github.com/xjasonlyu/tun2socks
+Executable SHA256: 076b3c3d6a372bae3f49f2b415a4105f70c30a3ed3caaed7979390e649892559
+Wintun 0.14.1 official signed DLL
+https://www.wintun.net
+DLL SHA256: e5da8447dc2c320edc0fc52fa01885c103de8c118481f683643cacc3220dafce
+Licenses: TUN2SOCKS-LICENSE.txt and WINTUN-LICENSE.txt
