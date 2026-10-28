@@ -238,7 +238,3 @@ public sealed class WindowsRouting : IAsyncDisposable
         stop.Cancel();dohClient?.Dispose();udp?.Dispose();tcp?.Stop();disposed=true;
     }
 }
-
-
-
-[exit code: 0]
