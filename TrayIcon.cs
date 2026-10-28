@@ -1,4 +1,3 @@
-
 using System.Runtime.InteropServices;
 
 namespace FluentTlsTunnel;
@@ -154,7 +153,7 @@ sealed class TrayIcon : IDisposable
 
     public void Dispose()
     {
-        if (_added) { var d = Data(0); Shell_NotifyIconW(2, ref d); _added = false; }
+        if (_added) { var d = Data(0); Shell_NotifyIconW(NIM_DELETE, ref d); _added = false; }
         RemoveWindowSubclass(_hwnd, _proc, new UIntPtr(1));
         if (_icon != IntPtr.Zero) { DestroyIcon(_icon); _icon = IntPtr.Zero; }
     }
