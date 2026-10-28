@@ -81,7 +81,7 @@ jobs:
           Windows 10 version 1809 or later / Windows 11 (x64).
           Extract the entire ZIP before running FluentTlsTunnel.exe. Keep all files together.
           .NET, Windows App SDK, and VC runtime files are bundled. No runtime installation is required.
-          The installer installs for the current user without administrator rights.
+          The installer installs to Program Files for all users; administrator approval is required.
           Portable ZIP and installer include the same bundled dependencies.
           brought to you by Instinct - https://instinct.com
           '@ | Set-Content publish/README.txt -Encoding utf8
@@ -95,10 +95,10 @@ jobs:
         run: |
           $p = Start-Process './FluentTlsTunnel-v${{ steps.version.outputs.value }}-installer-win-x64.exe' -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "Installer failed: $($p.ExitCode)" }
-          $root = "$env:LOCALAPPDATA/Programs/FluentTlsTunnel"
-          if (-not (Test-Path "$root/FluentTlsTunnel.exe")) { throw 'Per-user install missing' }
-          $desktop = [Environment]::GetFolderPath('Desktop')
-          $programs = [Environment]::GetFolderPath('Programs')
+          $root = "${env:ProgramFiles}/FluentTlsTunnel"
+          if (-not (Test-Path "$root/FluentTlsTunnel.exe")) { throw 'Program Files install missing' }
+          $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
+          $programs = [Environment]::GetFolderPath('CommonPrograms')
           foreach ($dir in @($desktop,$programs)) {
             if (-not (Test-Path "$dir/Fluent TLS Tunnel.lnk")) { throw 'Clean shortcut missing' }
             if (Test-Path "$dir/Fluent TLS Tunnel (Self-contained).lnk") { throw 'Old shortcut remains' }
@@ -133,7 +133,7 @@ jobs:
           }
           @'
           Full offline kit
-          Run Install.exe to install the app without internet or administrator rights.
+          Run Install.exe to install the app without an internet connection; administrator approval is required.
           The app includes .NET, Windows App SDK and VC runtime files. No separate runtime installation is required.
           The runtimes folder additionally contains the original signed Microsoft offline installers for .NET Desktop Runtime 8, Windows App Runtime 1.6 and Visual C++ x64.
           These optional system installers can require administrator rights. They are not needed to run this app.
@@ -143,7 +143,7 @@ jobs:
           Expand-Archive 'FluentTlsTunnel-v${{ steps.version.outputs.value }}-full-offline-win-x64.zip' offline-test
           $test = Start-Process './offline-test/Install.exe' -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($test.ExitCode -ne 0) { throw 'Offline kit install failed' }
-          $app = Start-Process "$env:LOCALAPPDATA/Programs/FluentTlsTunnel/FluentTlsTunnel.exe" -ArgumentList '--preview=en --state=about' -PassThru
+          $app = Start-Process "${env:ProgramFiles}/FluentTlsTunnel/FluentTlsTunnel.exe" -ArgumentList '--preview=en --state=about' -PassThru
           Start-Sleep -Seconds 10
           if ($app.HasExited) { throw 'Offline kit app launch failed' }
           Stop-Process -Id $app.Id -Force
