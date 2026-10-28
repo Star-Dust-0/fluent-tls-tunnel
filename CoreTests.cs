@@ -13,16 +13,21 @@ var profile=new Profile {Host="127.0.0.1",Port=443,Sni="test.example",Username="
 Check(!System.Text.Json.JsonSerializer.Serialize(profile).Contains("Password"),"No password serialization");
 using var rsa=RSA.Create(2048);
 var request=new CertificateRequest("CN=test.example",rsa,HashAlgorithmName.SHA256,RSASignaturePadding.Pkcs1);
-using var cert=request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1),DateTimeOffset.UtcNow.AddDays(1));
+using var generated=request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1),DateTimeOffset.UtcNow.AddDays(1));
+// Schannel requires an imported key container, unlike Linux OpenSSL.
+using var cert=new X509Certificate2(generated.Export(X509ContentType.Pfx), (string?)null, X509KeyStorageFlags.Exportable);
 var listener=new TcpListener(IPAddress.Loopback,0); listener.Start();
 profile.Port=((IPEndPoint)listener.LocalEndpoint).Port;
 var sni="";
 var server=Task.Run(async ()=>
 {
+ try
+ {
  using var peer=await listener.AcceptTcpClientAsync();
  using var tls=new SslStream(peer.GetStream());
  await tls.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificateSelectionCallback=(_,name)=>{sni=name; return cert;} });
  var data=new byte[4]; await tls.ReadExactlyAsync(data); await tls.WriteAsync(data);
+ } catch(Exception error) {Console.Error.WriteLine("TLS test server: " + error); throw;}
 });
 await using(var bridge=new TlsBridge())
 {
@@ -34,6 +39,7 @@ await using(var bridge=new TlsBridge())
  await server; Check(sni=="test.example","SNI reaches TLS server");
 }
 listener.Stop(); Console.WriteLine("All tests passed.");
+
 var encrypted=ConfigCrypto.Encode(profile,"test-password");
 Check(ConfigCrypto.Encrypted(encrypted),"Encrypted envelope");
 Check(ConfigCrypto.Decode(encrypted,"test-password").Sni==profile.Sni,"AES-GCM config roundtrip");
