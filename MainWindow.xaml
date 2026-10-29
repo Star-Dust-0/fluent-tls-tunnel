@@ -48,7 +48,7 @@
 <Border CornerRadius="8" Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"><StackPanel Spacing="8">
 <TextBlock x:Name="DeveloperCredit" HorizontalAlignment="Center" FontWeight="SemiBold"/>
 <HyperlinkButton Content="brought to you by Instinct" NavigateUri="https://instinct.com" HorizontalAlignment="Center" FlowDirection="LeftToRight"/>
-<HyperlinkButton x:Name="RepositoryLink" NavigateUri="https://github.com/MohamedElnaggar00/fluent-tls-tunnel" HorizontalAlignment="Center" FlowDirection="LeftToRight"/>
+<HyperlinkButton x:Name="RepositoryLink" NavigateUri="https://github.com/Star-Dust-0/fluent-tls-tunnel" HorizontalAlignment="Center" FlowDirection="LeftToRight"/>
 <TextBlock Text="MIT License" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 </StackPanel></Border><Border CornerRadius="12" Padding="24" BorderThickness="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"><StackPanel Spacing="8"><TextBlock x:Name="UpdatesHeadingAbout" FontSize="16" FontWeight="SemiBold"/><TextBlock x:Name="UpdatesNoteAbout" FontSize="13" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/><TextBlock x:Name="InstalledVersionAbout" FontSize="13"/><Button x:Name="CheckUpdatesAbout" Click="CheckUpdatesClick" HorizontalAlignment="Left"/><TextBlock x:Name="UpdateResultAbout" FontSize="13" TextWrapping="Wrap"/><HyperlinkButton x:Name="UpdateLinkAbout" Visibility="Collapsed" HorizontalAlignment="Left"/></StackPanel></Border></StackPanel></ScrollViewer></Grid></Border></NavigationView>
 

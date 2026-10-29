@@ -2,7 +2,7 @@
 
 ## v0.2.1
 
-Republished under the StarsDust01 repository, recovered from the original source. Same app code as the original v0.2.1; packaging changes only: the installer now installs to C:\Program Files\FluentTlsTunnel (requires administrator) and offers a desktop shortcut checked by default, and the in-app update check now looks at the StarsDust01 repository.
+Republished under the Star-Dust-0 repository, recovered from the original source. Same app code as the original v0.2.1; packaging changes only: the installer now installs to C:\Program Files\FluentTlsTunnel (requires administrator) and offers a desktop shortcut checked by default, and the in-app update check now looks at the Star-Dust-0 repository.
 
 Original v0.2.1 changes:
 - Fixed browsing failing with connection-closed errors while connected: DNS answers now always stay on IPv4 (AAAA queries receive an empty answer), keeping the IPv6 routes inside the tunnel so no IPv6 traffic leaks.
