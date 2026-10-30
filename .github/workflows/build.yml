@@ -65,7 +65,7 @@ jobs:
           Push-Location $shots
           git init
           git config user.name 'Mohamed Elnaggar'
-          git config user.email 'instinct@users.noreply.github.com'
+          git config user.email '349939029+Star-Dust-0@users.noreply.github.com'
           git checkout --orphan ui-review
           git add *.png
           git commit -m 'Windows CI UI review screenshots'
